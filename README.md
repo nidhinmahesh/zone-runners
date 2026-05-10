@@ -1,6 +1,6 @@
 # Zone Runners
 
-Zone Runners is a protocol that turns existing DePIN infrastructure into a competitive game. Operators running Helium hotspots, Hivemapper dashcams, or GEODNET base stations race to claim geographic zones on Solana and earn $ZONE on top of whatever their hardware already earns. People without hardware can delegate $ZONE to operators they trust and earn a cut automatically.
+Zone Runners is an app built on top of existing DePIN infrastructure that turns it into a competitive game. Operators running Helium hotspots, Hivemapper dashcams, or GEODNET base stations race to claim geographic zones on Solana and earn $ZONE on top of whatever their hardware already earns. People without hardware can delegate $ZONE to operators they trust and earn a cut automatically.
 
 The verification is the interesting part. Zone Runners doesn't use a trusted bridge or an oracle you have to believe. It reads the operator's existing on-chain data feeds directly. If the hardware was running, the proof is already there.
 
@@ -28,7 +28,7 @@ Every season you touch, whether as an operator, delegator, or both, writes perma
 
 Helium, Hivemapper, and GEODNET each reward their operators in isolation. The operator running a hotspot in an underserved city gets the same HNT per hour as one in a saturated area. There's no incentive to expand into gaps, no way for capital to flow to the best operators without owning hardware yourself, and no shared identity layer that follows an operator across networks.
 
-Zone Runners puts geographic competition and capital coordination on top of existing DePIN networks without replacing them.
+Zone Runners puts geographic competition and capital coordination on top of existing DePIN networks. It doesn't replace them.
 
 ---
 
