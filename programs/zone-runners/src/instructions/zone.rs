@@ -26,10 +26,9 @@ pub fn claim_zone(ctx: Context<ClaimZone>, h3_index: u64, facility: Pubkey) -> R
     if vault.season == Pubkey::default() {
         vault.season = season.key();
         vault.operator = ctx.accounts.operator.key();
-        vault.total_delegated = 0;
         vault.zones_claimed = 0;
         vault.zones_verified = 0;
-        vault.rewards_distributed = 0;
+        vault.rewards_claimed = 0;
         vault.bump = ctx.bumps.operator_vault;
     }
     vault.zones_claimed = vault.zones_claimed.checked_add(1).ok_or(ZoneError::MathOverflow)?;

@@ -1,8 +1,8 @@
 # Zone Runners
 
-Zone Runners is an app built on top of existing DePIN infrastructure that turns it into a competitive game. Operators running Helium hotspots, Hivemapper dashcams, or GEODNET base stations race to claim geographic zones on Solana and earn $ZONE on top of whatever their hardware already earns. People without hardware can delegate $ZONE to operators they trust and earn a cut automatically.
+Zone Runners is an app built on top of existing DePIN infrastructure. It lets anyone pay in SOL to get trustless, on-chain proof that a geographic area has active coverage from real hardware. Operators running Helium hotspots, Hivemapper dashcams, or GEODNET base stations earn that SOL by proving their hardware was actually there and running.
 
-The verification is the interesting part. Zone Runners doesn't use a trusted bridge or an oracle you have to believe. It reads the operator's existing on-chain data feeds directly. If the hardware was running, the proof is already there.
+No new token. No oracle you have to trust. The proof is the hardware's own data feed, read directly from the chain.
 
 Live: `https://api.getfexr.com/v1/clubs/6`
 
@@ -12,108 +12,109 @@ Live: `https://api.getfexr.com/v1/clubs/6`
 
 **You run a Helium hotspot, Hivemapper dashcam, or GEODNET station**
 
-Your hardware earns HNT, HONEY, or GEOD from its own network. Zone Runners adds a second layer of yield on top, paid in $ZONE, for coverage your hardware is already providing. You register your node, claim the zones it covers, and the data it's already publishing verifies the claim. No new setup, no extra hardware. One device, two income streams.
+Your hardware earns HNT, HONEY, or GEOD from its own network. Zone Runners adds a second income stream on top, paid in SOL. When a season has a bounty on a geographic area, you claim the zones your hardware covers, verify them, and earn a share of the SOL pool proportional to how many zones you proved. No new setup, no extra hardware. One device, two income streams.
 
-**You have capital but no hardware**
+**You need to know if coverage actually exists somewhere**
 
-Browse the operator leaderboard, pick someone with strong coverage in an active season, and delegate $ZONE to them. You earn a share of their verified zone rewards automatically. When the season ends you get your principal back and can move to a different operator. You never touch a physical device.
+A telecom doing competitive analysis, a logistics company planning IoT deployment, a protocol that needs a geographic condition verified before executing, a researcher mapping real-world DePIN density. You deposit SOL into a season bounty targeting the area and network you care about. Operators with hardware in that area prove it, and you get an on-chain proof that can't be forged. Not an operator's word. Not a bridge you have to trust. The hardware's own data.
 
-**You're a Solana user with neither**
+**You're a Solana user building on real-world data**
 
-Every season you touch, whether as an operator, delegator, or both, writes permanently to your Contribution Passport on-chain. That record builds over time: zones verified, $ZONE delegated, seasons completed. It can't be bought retroactively, only earned. Protocols across Solana can already read it for airdrops, whitelist access, and credit scoring. Getting in early means a longer history than anyone who joins later.
+Every zone an operator verifies writes to their Contribution Passport on-chain. That record builds over time across seasons and networks. It can't be bought retroactively, only earned by running hardware that publishes real data. Any Solana program can read a Passport without permission from Zone Runners. Getting in early means a longer track record than anyone who joins later.
 
 ---
 
 ## The problem it's solving
 
-Helium, Hivemapper, and GEODNET each reward their operators in isolation. The operator running a hotspot in an underserved city gets the same HNT per hour as one in a saturated area. There's no incentive to expand into gaps, no way for capital to flow to the best operators without owning hardware yourself, and no shared identity layer that follows an operator across networks.
+There's no trustless way to answer "does active DePIN coverage exist at location X right now?" You either trust an operator's claim, trust a bridge, or trust an oracle. All of those have a point of failure.
 
-Zone Runners puts geographic competition and capital coordination on top of existing DePIN networks. It doesn't replace them.
+Zone Runners removes the trust requirement. It reads the operator's existing data feeds from the chain directly, without CPI, without an intermediary. If the hardware was running and publishing data, the proof is already there.
 
 ---
 
 ## How a season works
 
-Each season runs for a fixed window targeting one DePIN network. A reward pool of $ZONE is deposited before the season starts. Operators race to claim H3 hexagonal zones and verify them. When the season ends, anyone can settle it and rewards flow proportionally.
+A season is a coverage campaign targeting one DePIN network over a fixed time window. Anyone can deposit SOL to fund the bounty. Operators claim H3 hexagonal zones and verify them against their live data. When the season ends, SOL flows to operators proportional to verified zones.
 
 ```
-Season: Helium · 90 days · 100,000 $ZONE pool
+Season: Helium · 90 days · 50 SOL bounty pool
+
+  Coverage buyer deposits 50 SOL into the season
+    └── looking for proof of Helium coverage across Austin, TX
 
   Operator A claims zone 617700169958293503 (Austin, TX)
     └── verify_zone_coverage reads Operator A's SnapshotBuffer from guage-commons
-    └── finds 5 recent entries with quality_flags ≥ 1
-    └── zone verified ✓
+    └── finds 5 recent entries with quality_flags ≥ 1 in the last 24h
+    └── zone verified, proof written on-chain ✓
 
-  Delegator X puts 5,000 $ZONE behind Operator A
-    └── held in Operator A's vault PDA until season ends
+  Operator B verifies 3 zones. Operator A verifies 7.
 
   Season ends → settle_season() called by anyone
-    └── Operator A earns: 100k × 0.70 × (A's zones / total zones)
-    └── Delegator X earns: A's pool share × 0.30 × (5k / A's total delegation)
+    └── Operator A earns: 50 SOL × (7 / 10) = 35 SOL
+    └── Operator B earns: 50 SOL × (3 / 10) = 15 SOL
 ```
 
-Rewards are claimed individually. Settlement is permissionless.
+Settlement is permissionless. Rewards are claimed individually.
 
 ---
 
-## Why zone verification can't be faked
+## Why coverage proofs can't be faked
 
-This is worth understanding. Zone Runners doesn't trust operators. When `verify_zone_coverage` is called, the program reads the operator's `SnapshotBuffer` account directly from guage-commons storage. No CPI, no oracle call, no intermediary.
+When `verify_zone_coverage` is called, the program reads the operator's `SnapshotBuffer` account directly from guage-commons storage. No CPI, no oracle call, no intermediary.
 
 ```rust
 let data = ctx.accounts.snapshot_buffer.data.borrow();
 let snapshot = SnapshotBufferView::try_from_slice(&data[8..])?;
 
-// the facility on the snapshot must match the one registered on the claim
+// the snapshot must belong to the facility the operator registered
 require_keys_eq!(snapshot.facility, claim.facility, ZoneError::FacilityMismatch);
 
-// need real recent data: at least min_entries in the last 24h above the quality threshold
+// need real recent data: at least min_entries in the last 24h above quality threshold
 let recent = snapshot.entries.iter()
     .filter(|e| e.created_at > now - 86_400 && e.quality_flags >= min_quality_flags)
     .count();
 require!(recent >= min_entries as usize, ZoneError::InsufficientCoverage);
 ```
 
-If the hardware wasn't publishing data, there's nothing to read, and the zone doesn't verify. The proof is the data the hardware already produced, not a transaction the operator submitted.
+The `snapshot_buffer` account's owner is verified against the guage-commons program ID before deserialization. An operator can't pass in a fake account — Solana enforces account ownership. If the hardware wasn't publishing data, there's nothing to read, and the zone doesn't verify.
 
 ---
 
 ## Contribution Passport
 
-Every wallet gets one `ContributionPassport` PDA that updates automatically across seasons and networks.
+Every operator wallet gets one `ContributionPassport` PDA that updates automatically across seasons and networks.
 
 | Tier | How you get there |
 |------|------------------|
 | Scout | Participate in any season |
-| Runner | Verify at least 1 zone, or delegate at least 5,000 $ZONE total |
+| Runner | Verify at least 1 zone |
 | Zone Lead | Verify 5+ zones across 2+ seasons |
-| Pioneer | Verify 20+ zones, or 100,000+ $ZONE delegated total |
+| Pioneer | Verify 20+ zones |
 
-The passport is public and composable. Any Solana program can read it without permission from Zone Runners. It's designed to become useful collateral. The longer you hold a Pioneer passport with a deep history, the more other protocols will weight it.
+The passport is public and composable. Any Solana program can read it without permission from Zone Runners. A Pioneer passport with a long history across multiple networks becomes a meaningful credential for airdrops, whitelist access, and credit scoring by other protocols.
 
 ---
 
 ## Reward math
 
 ```
-Season pool = P
+Season bounty pool = P (in SOL lamports)
 
-Operators split 70%:
-  operator_i share = P × 0.70 × (zones_verified_i / total_zones_verified)
-
-Delegators split 30%, routed through their operator:
-  delegator_j share = (operator_i's 70% share × 0.30) × (delegation_j / operator_i_total_delegated)
+Each operator's share:
+  operator_i = P × (zones_verified_i / total_zones_verified)
 ```
+
+100% of the pool goes to operators who proved real coverage. No platform fee, no token middleman.
 
 ---
 
 ## Integrating your DePIN hardware
 
-Zone Runners reads data from [guage-commons](https://github.com/fexr/solana-contracts), a Solana program for managing physical infrastructure data feeds. To make your hardware verifiable:
+Zone Runners reads data from [guage-commons](https://github.com/fexr/solana-contracts), a Solana program for managing physical infrastructure data feeds.
 
 1. Call `register_facility` on guage-commons with your node's metadata. This gives you a `Facility` pubkey that becomes the link between your hardware and your zone claims.
 
-2. Publish data via `publish_snapshot` regularly. Each entry carries a `quality_flags` bitmask. Zone Runners checks that enough recent entries exceed a quality threshold. Set this to whatever makes sense for your network.
+2. Publish data via `publish_snapshot` regularly. Each entry carries a `quality_flags` bitmask. Zone Runners checks that enough recent entries exceed a quality threshold.
 
 3. Use your `Facility` pubkey when calling `claim_zone`. Zone Runners will check the corresponding `SnapshotBuffer` on verification.
 
@@ -124,15 +125,15 @@ guage-commons devnet: `4Ch9vYQJyXtyZ7Swr9EMU9xaCtpZDckv4E1thjX7FZjW`
 ## TypeScript SDK
 
 ```typescript
-import { ZoneRunnersClient, tierLabel } from "@zone-runners/sdk";
+import { ZoneRunnersClient } from "@zone-runners/sdk";
 
 const client = new ZoneRunnersClient(provider, idl);
 
 // check any wallet's passport
 const passport = await client.getPassport(walletPublicKey);
-console.log(tierLabel(passport.currentTier)); // "Runner"
+console.log(passport.currentTier); // 2 = ZoneLead
 
-// see what's been claimed this season
+// see what's been verified this season
 const claims = await client.getZoneClaims(seasonPda);
 console.log(`${claims.filter(c => c.isVerified).length} zones verified`);
 
@@ -144,13 +145,11 @@ const tx = await client.buildClaimZoneTx(
   facilityPublicKey,
 );
 
-// delegate without hardware
-const delegateTx = await client.buildDelegateStakeTx(
-  delegatorPublicKey,
+// fund a coverage bounty with SOL
+const fundTx = await client.buildFundSeasonTx(
+  funderPublicKey,
   seasonPda,
-  operatorPublicKey,
-  5_000_000_000n, // 5,000 $ZONE
-  zoneTokenMint,
+  0.5 * 1e9, // 0.5 SOL in lamports
 );
 ```
 
@@ -165,11 +164,9 @@ const delegateTx = await client.buildDelegateStakeTx(
 | `GET /clubs/{id}/epochs` | all seasons |
 | `GET /clubs/{id}/epochs/current` | active season with live stats |
 | `GET /clubs/{id}/epochs/{id}/leaderboard` | operators ranked by zones verified |
-| `GET /clubs/{id}/depin/zones` | zone claims, filterable by operator / verified |
+| `GET /clubs/{id}/depin/zones` | zone claims, filterable by operator or verified status |
 | `POST /clubs/{id}/depin/zones/claim` | unsigned claim TX |
 | `POST /clubs/{id}/depin/zones/verify` | unsigned verify TX |
-| `GET /clubs/{id}/depin/delegation` | operator pools |
-| `POST /clubs/{id}/depin/delegation` | unsigned delegation TX |
 | `GET /clubs/{id}/depin/passport` | your passport |
 | `GET /clubs/{id}/depin/passport/{wallet}` | any wallet's passport |
 
@@ -194,11 +191,10 @@ Prerequisites: Anchor 0.29.0, Rust 1.89.0, Solana CLI, Node 18+
 
 | Account | Seeds | |
 |---------|-------|-|
-| `ZoneConfig` | `["zone-config", club_id]` | admin, token mint, oracle program |
-| `Season` | `["season", zone_config, season_index]` | campaign window and pool |
+| `ZoneConfig` | `["zone-config", club_id]` | admin and oracle program |
+| `Season` | `["season", zone_config, season_index]` | campaign window and SOL bounty |
 | `ZoneClaim` | `["zone-claim", season, h3_index]` | territorial ownership of one cell |
-| `OperatorVault` | `["op-vault", season, operator]` | stats and delegation total |
-| `DelegationStake` | `["delegation", season, operator, delegator]` | one delegation record |
+| `OperatorVault` | `["op-vault", season, operator]` | operator stats per season |
 | `ContributionPassport` | `["passport", authority]` | cross-season identity |
 
 ---
@@ -214,10 +210,10 @@ Prerequisites: Anchor 0.29.0, Rust 1.89.0, Solana CLI, Node 18+
 
 ## What's next
 
-- Multi-network seasons where a single campaign spans Helium and GEODNET simultaneously, weighting zones by cross-network data quality
+- Multi-network seasons where a single campaign spans Helium and GEODNET simultaneously
 - Slash mechanics so false claims can be challenged on-chain
-- A standard interface for other programs to query passport tier without a Zone Runners dependency
-- Zone claim NFTs carrying verified coverage history
+- A standard interface for other programs to query Passport tier without a Zone Runners dependency
+- Direct API access for coverage proofs, so non-Solana applications can pay for verified data
 
 ---
 

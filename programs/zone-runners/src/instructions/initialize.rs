@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::Mint;
 use crate::state::*;
 
 pub fn initialize_zone_config(
@@ -11,7 +10,6 @@ pub fn initialize_zone_config(
     cfg.admin = ctx.accounts.admin.key();
     cfg.club_id = club_id.to_le_bytes();
     cfg.guage_program_id = guage_program_id;
-    cfg.zone_token_mint = ctx.accounts.zone_token_mint.key();
     cfg.season_count = 0;
     cfg.bump = ctx.bumps.zone_config;
     Ok(())
@@ -31,8 +29,6 @@ pub struct InitializeZoneConfig<'info> {
         bump
     )]
     pub zone_config: Account<'info, ZoneConfig>,
-
-    pub zone_token_mint: Account<'info, Mint>,
 
     pub system_program: Program<'info, System>,
 }

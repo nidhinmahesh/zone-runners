@@ -16,7 +16,6 @@ pub mod zone_runners {
     // ── Config ───────────────────────────────────────────────────────────────
 
     /// Initialize a ZoneConfig for a fexrapi club.
-    /// Must be called by the club admin before any seasons can be created.
     pub fn initialize_zone_config(
         ctx: Context<InitializeZoneConfig>,
         club_id: u64,
@@ -38,12 +37,13 @@ pub mod zone_runners {
         season::create_season(ctx, network_name, h3_resolution, start_ts, end_ts)
     }
 
-    /// Deposit $ZONE tokens into the season reward pool.
+    /// Deposit SOL into the season bounty pool.
+    /// Coverage buyers fund campaigns for geographic areas they need proven.
     pub fn fund_season_pool(ctx: Context<FundSeasonPool>, amount: u64) -> Result<()> {
         season::fund_season_pool(ctx, amount)
     }
 
-    // ── Zone racing ──────────────────────────────────────────────────────────
+    // ── Zone coverage ────────────────────────────────────────────────────────
 
     /// Operator claims an H3 geographic zone for the current season.
     pub fn claim_zone(
@@ -55,7 +55,7 @@ pub mod zone_runners {
     }
 
     /// Verify a zone claim by reading coverage data from a guage-commons SnapshotBuffer.
-    /// Cross-program account read — no CPI. The proof is the real-world data.
+    /// Cross-program account read — no CPI, no oracle. The proof is the hardware's own data.
     pub fn verify_zone_coverage(
         ctx: Context<VerifyZoneCoverage>,
         h3_index: u64,
@@ -65,19 +65,6 @@ pub mod zone_runners {
         zone::verify_zone_coverage(ctx, h3_index, min_entries, min_quality_flags)
     }
 
-    // ── Delegation ───────────────────────────────────────────────────────────
-
-    /// Delegate $ZONE to an operator for the current season.
-    /// Tokens are held in the operator's vault PDA until undelegated or rewards claimed.
-    pub fn delegate_stake(ctx: Context<DelegateStake>, amount: u64) -> Result<()> {
-        delegation::delegate_stake(ctx, amount)
-    }
-
-    /// Return principal to delegator after the season ends.
-    pub fn undelegate_stake(ctx: Context<UndelegateStake>) -> Result<()> {
-        delegation::undelegate_stake(ctx)
-    }
-
     // ── Rewards ──────────────────────────────────────────────────────────────
 
     /// Settle the season after end_ts. Permissionless — anyone can call.
@@ -85,14 +72,9 @@ pub mod zone_runners {
         rewards::settle_season(ctx)
     }
 
-    /// Operator claims their 70% reward share, pro-rated by zones_verified.
+    /// Operator claims their SOL share of the bounty pool, pro-rated by zones verified.
     pub fn claim_operator_rewards(ctx: Context<ClaimOperatorRewards>) -> Result<()> {
         rewards::claim_operator_rewards(ctx)
-    }
-
-    /// Delegator claims their share of the 30% delegator pool.
-    pub fn claim_delegator_rewards(ctx: Context<ClaimDelegatorRewards>) -> Result<()> {
-        rewards::claim_delegator_rewards(ctx)
     }
 
     // ── Passport ─────────────────────────────────────────────────────────────

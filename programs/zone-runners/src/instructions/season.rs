@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
+use anchor_lang::system_program;
 use crate::errors::ZoneError;
 use crate::state::*;
 
@@ -23,10 +23,9 @@ pub fn create_season(
     season.h3_resolution = h3_resolution;
     season.start_ts = start_ts;
     season.end_ts = end_ts;
-    season.reward_pool = 0;
+    season.bounty_pool = 0;
     season.zones_claimed = 0;
     season.zones_verified = 0;
-    season.total_delegated = 0;
     season.is_settled = false;
     season.bump = ctx.bumps.season;
 
@@ -35,23 +34,26 @@ pub fn create_season(
     Ok(())
 }
 
+/// Deposit SOL into the season bounty pool. Anyone can fund a season.
+/// Coverage buyers — businesses, protocols, researchers — use this to put
+/// real money behind the geographic coverage they want proven.
 pub fn fund_season_pool(ctx: Context<FundSeasonPool>, amount: u64) -> Result<()> {
     let season = &mut ctx.accounts.season;
     require!(!season.is_settled, ZoneError::SeasonAlreadySettled);
+    require!(amount > 0, ZoneError::EmptyRewardPool);
 
-    // Transfer $ZONE from funder → season vault
+    // Transfer SOL from funder to the Season PDA
     let cpi_ctx = CpiContext::new(
-        ctx.accounts.token_program.to_account_info(),
-        Transfer {
-            from: ctx.accounts.funder_token_account.to_account_info(),
-            to: ctx.accounts.season_token_vault.to_account_info(),
-            authority: ctx.accounts.funder.to_account_info(),
+        ctx.accounts.system_program.to_account_info(),
+        system_program::Transfer {
+            from: ctx.accounts.funder.to_account_info(),
+            to: ctx.accounts.season.to_account_info(),
         },
     );
-    token::transfer(cpi_ctx, amount)?;
+    system_program::transfer(cpi_ctx, amount)?;
 
-    season.reward_pool = season
-        .reward_pool
+    season.bounty_pool = season
+        .bounty_pool
         .checked_add(amount)
         .ok_or(ZoneError::MathOverflow)?;
 
@@ -97,28 +99,5 @@ pub struct FundSeasonPool<'info> {
     )]
     pub season: Account<'info, Season>,
 
-    pub zone_token_mint: Account<'info, Mint>,
-
-    #[account(
-        mut,
-        associated_token::mint = zone_token_mint,
-        associated_token::authority = funder,
-    )]
-    pub funder_token_account: Account<'info, TokenAccount>,
-
-    /// Season vault PDA holds pooled $ZONE rewards
-    #[account(
-        init_if_needed,
-        payer = funder,
-        seeds = [SEASON_TOKEN_VAULT_SEED, season.key().as_ref()],
-        bump,
-        token::mint = zone_token_mint,
-        token::authority = season,
-    )]
-    pub season_token_vault: Account<'info, TokenAccount>,
-
-    pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
-    /// CHECK: required by anchor_spl associated_token
-    pub rent: Sysvar<'info, Rent>,
 }

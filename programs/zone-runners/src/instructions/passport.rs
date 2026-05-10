@@ -20,7 +20,6 @@ pub fn update_passport(ctx: Context<UpdatePassport>) -> Result<()> {
         authority: passport.authority,
         tier: passport.current_tier,
         zones_verified: passport.zones_verified_total,
-        total_delegated: passport.total_delegated_ever,
         seasons_participated: passport.seasons_participated,
         updated_at: now,
     });
@@ -95,7 +94,6 @@ pub struct PassportUpdatedEvent {
     pub authority: Pubkey,
     pub tier: u8,
     pub zones_verified: u32,
-    pub total_delegated: u64,
     pub seasons_participated: u32,
     pub updated_at: i64,
 }

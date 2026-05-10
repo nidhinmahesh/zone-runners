@@ -7,27 +7,15 @@ pub const ZONE_CONFIG_SEED: &[u8] = b"zone-config";
 pub const SEASON_SEED: &[u8] = b"season";
 pub const ZONE_CLAIM_SEED: &[u8] = b"zone-claim";
 pub const OP_VAULT_SEED: &[u8] = b"op-vault";
-pub const DELEGATION_SEED: &[u8] = b"delegation";
 pub const PASSPORT_SEED: &[u8] = b"passport";
-pub const OP_TOKEN_VAULT_SEED: &[u8] = b"op-token-vault";
-pub const SEASON_TOKEN_VAULT_SEED: &[u8] = b"season-token-vault";
 
-// Tier thresholds (ZONE token has 6 decimals)
-pub const RUNNER_MIN_DELEGATED: u64 = 5_000 * 1_000_000;    // 5 000 ZONE
 pub const RUNNER_MIN_ZONES: u32 = 1;
 pub const ZONE_LEAD_MIN_ZONES: u32 = 5;
 pub const ZONE_LEAD_MIN_SEASONS: u32 = 2;
 pub const PIONEER_MIN_ZONES: u32 = 20;
-pub const PIONEER_MIN_DELEGATED: u64 = 100_000 * 1_000_000; // 100 000 ZONE
-
-// Reward split: 70% operators / 30% delegators
-pub const OPERATOR_SHARE_BPS: u64 = 7_000;
-pub const DELEGATOR_SHARE_BPS: u64 = 3_000;
-pub const BPS_DENOMINATOR: u64 = 10_000;
 
 // ─── ZoneConfig ──────────────────────────────────────────────────────────────
 // PDA seeds: [ZONE_CONFIG_SEED, club_id]
-// One per fexrapi club. Initialized by the club admin.
 
 #[account]
 pub struct ZoneConfig {
@@ -36,18 +24,17 @@ pub struct ZoneConfig {
     pub club_id: [u8; 8],
     /// guage-commons program ID (4Ch9vYQJyXtyZ7Swr9EMU9xaCtpZDckv4E1thjX7FZjW)
     pub guage_program_id: Pubkey,
-    /// $ZONE SPL token mint
-    pub zone_token_mint: Pubkey,
     pub season_count: u32,
     pub bump: u8,
 }
 
 impl ZoneConfig {
-    pub const MAX_SIZE: usize = 32 + 8 + 32 + 32 + 4 + 1 + 8;
+    pub const MAX_SIZE: usize = 32 + 8 + 32 + 4 + 1 + 8;
 }
 
 // ─── Season ───────────────────────────────────────────────────────────────────
 // PDA seeds: [SEASON_SEED, zone_config, season_index_be(4)]
+// The Season PDA holds the SOL bounty pool as its lamports.
 
 #[account]
 pub struct Season {
@@ -57,17 +44,16 @@ pub struct Season {
     pub h3_resolution: u8,    // H3 cell resolution (5–12)
     pub start_ts: i64,
     pub end_ts: i64,
-    pub reward_pool: u64,     // lamport-equivalent units in $ZONE (6 dec)
+    pub bounty_pool: u64,     // SOL lamports deposited as coverage bounty
     pub zones_claimed: u32,
     pub zones_verified: u32,
-    pub total_delegated: u64,
     pub is_settled: bool,
     pub bump: u8,
 }
 
 impl Season {
     pub const MAX_SIZE: usize =
-        32 + 4 + (4 + MAX_NETWORK_NAME_LEN) + 1 + 8 + 8 + 8 + 4 + 4 + 8 + 1 + 1 + 8;
+        32 + 4 + (4 + MAX_NETWORK_NAME_LEN) + 1 + 8 + 8 + 8 + 4 + 4 + 1 + 1 + 8;
 }
 
 // ─── ZoneClaim ────────────────────────────────────────────────────────────────
@@ -102,39 +88,19 @@ impl ZoneClaim {
 pub struct OperatorVault {
     pub season: Pubkey,
     pub operator: Pubkey,
-    pub total_delegated: u64,
     pub zones_claimed: u32,
     pub zones_verified: u32,
-    pub rewards_distributed: u64,
-    pub bump: u8,
-}
-
-impl OperatorVault {
-    pub const MAX_SIZE: usize = 32 + 32 + 8 + 4 + 4 + 8 + 1 + 8;
-}
-
-// ─── DelegationStake ──────────────────────────────────────────────────────────
-// PDA seeds: [DELEGATION_SEED, season, operator, delegator]
-
-#[account]
-pub struct DelegationStake {
-    pub season: Pubkey,
-    pub operator: Pubkey,
-    pub delegator: Pubkey,
-    pub amount: u64,
-    pub delegated_at: i64,
-    pub is_active: bool,
     pub rewards_claimed: u64,
     pub bump: u8,
 }
 
-impl DelegationStake {
-    pub const MAX_SIZE: usize = 32 + 32 + 32 + 8 + 8 + 1 + 8 + 1 + 8;
+impl OperatorVault {
+    pub const MAX_SIZE: usize = 32 + 32 + 4 + 4 + 8 + 1 + 8;
 }
 
 // ─── ContributionPassport ─────────────────────────────────────────────────────
 // PDA seeds: [PASSPORT_SEED, authority]
-// One per wallet. Accumulates stats across all seasons and clubs.
+// One per wallet. Accumulates stats across all seasons and networks.
 
 #[account]
 pub struct ContributionPassport {
@@ -142,8 +108,6 @@ pub struct ContributionPassport {
     pub zones_claimed_total: u32,
     pub zones_verified_total: u32,
     pub seasons_participated: u32,
-    pub total_delegated_ever: u64,
-    pub delegation_count: u32,
     /// 0=Scout  1=Runner  2=ZoneLead  3=Pioneer
     pub current_tier: u8,
     pub last_updated: i64,
@@ -151,20 +115,16 @@ pub struct ContributionPassport {
 }
 
 impl ContributionPassport {
-    pub const MAX_SIZE: usize = 32 + 4 + 4 + 4 + 8 + 4 + 1 + 8 + 1 + 8;
+    pub const MAX_SIZE: usize = 32 + 4 + 4 + 4 + 1 + 8 + 1 + 8;
 
     pub fn recompute_tier(&mut self) {
-        self.current_tier = if self.zones_verified_total >= PIONEER_MIN_ZONES
-            || self.total_delegated_ever >= PIONEER_MIN_DELEGATED
-        {
+        self.current_tier = if self.zones_verified_total >= PIONEER_MIN_ZONES {
             3 // Pioneer
         } else if self.zones_verified_total >= ZONE_LEAD_MIN_ZONES
             && self.seasons_participated >= ZONE_LEAD_MIN_SEASONS
         {
             2 // ZoneLead
-        } else if self.zones_verified_total >= RUNNER_MIN_ZONES
-            || self.total_delegated_ever >= RUNNER_MIN_DELEGATED
-        {
+        } else if self.zones_verified_total >= RUNNER_MIN_ZONES {
             1 // Runner
         } else {
             0 // Scout
