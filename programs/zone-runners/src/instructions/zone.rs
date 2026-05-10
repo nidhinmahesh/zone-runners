@@ -230,7 +230,8 @@ pub fn challenge_zone(
 
     // ZoneClaim PDA now holds 2 × stake. Transfer profit to challenger, fee to admin.
     // Challenger's own stake stays in PDA as the new bond.
-    let zone_claim_info = ctx.accounts.zone_claim.to_account_info();
+    // Use claim (the mut ref) for lamport manipulation — avoids a second borrow of zone_claim
+    let zone_claim_info = claim.to_account_info();
     let challenger_info = ctx.accounts.challenger.to_account_info();
     let admin_info = ctx.accounts.admin.to_account_info();
 
@@ -292,7 +293,8 @@ pub fn withdraw_zone_stake(ctx: Context<WithdrawZoneStake>, h3_index: u64) -> Re
     let stake = claim.stake_lamports;
     claim.stake_lamports = 0;
 
-    **ctx.accounts.zone_claim.to_account_info().try_borrow_mut_lamports()? -= stake;
+    // Use claim ref directly — avoids a second borrow of zone_claim
+    **claim.to_account_info().try_borrow_mut_lamports()? -= stake;
     **ctx.accounts.operator.to_account_info().try_borrow_mut_lamports()? += stake;
 
     Ok(())

@@ -2,19 +2,12 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program, AnchorProvider, BN } from "@coral-xyz/anchor";
 import {
   Connection,
-  Keypair,
   PublicKey,
   Transaction,
   SystemProgram,
 } from "@solana/web3.js";
 import {
-  getAssociatedTokenAddress,
-  TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-} from "@solana/spl-token";
-import {
   ContributionPassportAccount,
-  DelegationStakeAccount,
   OperatorVaultAccount,
   SeasonAccount,
   ZoneClaimAccount,
@@ -27,10 +20,7 @@ const ZONE_CONFIG_SEED = Buffer.from("zone-config");
 const SEASON_SEED = Buffer.from("season");
 const ZONE_CLAIM_SEED = Buffer.from("zone-claim");
 const OP_VAULT_SEED = Buffer.from("op-vault");
-const DELEGATION_SEED = Buffer.from("delegation");
 const PASSPORT_SEED = Buffer.from("passport");
-const SEASON_TOKEN_VAULT_SEED = Buffer.from("season-token-vault");
-const OP_TOKEN_VAULT_SEED = Buffer.from("op-token-vault");
 
 function clubIdBuf(id: number): Buffer {
   const b = Buffer.alloc(8);
@@ -89,34 +79,9 @@ export class ZoneRunnersClient {
     );
   }
 
-  delegationPda(
-    season: PublicKey,
-    operator: PublicKey,
-    delegator: PublicKey
-  ): [PublicKey, number] {
-    return PublicKey.findProgramAddressSync(
-      [DELEGATION_SEED, season.toBuffer(), operator.toBuffer(), delegator.toBuffer()],
-      this.programId
-    );
-  }
-
   passportPda(wallet: PublicKey): [PublicKey, number] {
     return PublicKey.findProgramAddressSync(
       [PASSPORT_SEED, wallet.toBuffer()],
-      this.programId
-    );
-  }
-
-  seasonTokenVaultPda(season: PublicKey): [PublicKey, number] {
-    return PublicKey.findProgramAddressSync(
-      [SEASON_TOKEN_VAULT_SEED, season.toBuffer()],
-      this.programId
-    );
-  }
-
-  operatorTokenVaultPda(season: PublicKey, operator: PublicKey): [PublicKey, number] {
-    return PublicKey.findProgramAddressSync(
-      [OP_TOKEN_VAULT_SEED, season.toBuffer(), operator.toBuffer()],
       this.programId
     );
   }
@@ -142,28 +107,9 @@ export class ZoneRunnersClient {
 
   async getZoneClaims(seasonPda: PublicKey): Promise<ZoneClaimAccount[]> {
     const accounts = await this.program.account.zoneClaim.all([
-      {
-        memcmp: {
-          offset: 8, // skip discriminator
-          bytes: seasonPda.toBase58(),
-        },
-      },
+      { memcmp: { offset: 8, bytes: seasonPda.toBase58() } },
     ]);
     return accounts.map((a) => a.account as ZoneClaimAccount);
-  }
-
-  async getDelegationStakes(
-    seasonPda: PublicKey,
-    operator?: PublicKey
-  ): Promise<DelegationStakeAccount[]> {
-    const filters: anchor.web3.GetProgramAccountsFilter[] = [
-      { memcmp: { offset: 8, bytes: seasonPda.toBase58() } },
-    ];
-    if (operator) {
-      filters.push({ memcmp: { offset: 8 + 32, bytes: operator.toBase58() } });
-    }
-    const accounts = await this.program.account.delegationStake.all(filters);
-    return accounts.map((a) => a.account as DelegationStakeAccount);
   }
 
   async getPassport(wallet: PublicKey): Promise<ContributionPassportAccount | null> {
@@ -187,25 +133,23 @@ export class ZoneRunnersClient {
     }
   }
 
-  // ── Transaction builders (return base64-encoded unsigned transactions) ─────
+  // ── Transaction builders ───────────────────────────────────────────────────
 
   async buildClaimZoneTx(
     operator: PublicKey,
     seasonPda: PublicKey,
     h3Index: bigint,
     facility: PublicKey,
-    clubId: number
+    clubId: number,
+    stakeLamports: bigint = BigInt(10_000_000)
   ): Promise<string> {
     const [zoneConfigPda] = this.zoneConfigPda(clubId);
-    const season = await this.getSeason(seasonPda);
-    if (!season) throw new Error("Season not found");
-
     const [zoneClaimPda] = this.zoneClaimPda(seasonPda, h3Index);
     const [operatorVaultPda] = this.operatorVaultPda(seasonPda, operator);
     const [passportPda] = this.passportPda(operator);
 
     const ix = await this.program.methods
-      .claimZone(new BN(h3Index.toString()), facility)
+      .claimZone(new BN(h3Index.toString()), facility, new BN(stakeLamports.toString()))
       .accounts({
         operator,
         zoneConfig: zoneConfigPda,
@@ -217,54 +161,7 @@ export class ZoneRunnersClient {
       })
       .instruction();
 
-    const tx = new Transaction().add(ix);
-    tx.feePayer = operator;
-    const { blockhash } = await this.program.provider.connection.getLatestBlockhash();
-    tx.recentBlockhash = blockhash;
-
-    return tx.serialize({ requireAllSignatures: false }).toString("base64");
-  }
-
-  async buildDelegateStakeTx(
-    delegator: PublicKey,
-    operator: PublicKey,
-    seasonPda: PublicKey,
-    amount: bigint,
-    zoneTokenMint: PublicKey
-  ): Promise<string> {
-    const season = await this.getSeason(seasonPda);
-    if (!season) throw new Error("Season not found");
-
-    const [delegationPda] = this.delegationPda(seasonPda, operator, delegator);
-    const [operatorVaultPda] = this.operatorVaultPda(seasonPda, operator);
-    const [passportPda] = this.passportPda(delegator);
-    const [operatorTokenVaultPda] = this.operatorTokenVaultPda(seasonPda, operator);
-    const delegatorTokenAccount = await getAssociatedTokenAddress(zoneTokenMint, delegator);
-
-    const ix = await this.program.methods
-      .delegateStake(new BN(amount.toString()))
-      .accounts({
-        delegator,
-        operator,
-        season: seasonPda,
-        delegationStake: delegationPda,
-        operatorVault: operatorVaultPda,
-        passport: passportPda,
-        zoneTokenMint,
-        delegatorTokenAccount,
-        operatorTokenVault: operatorTokenVaultPda,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        systemProgram: SystemProgram.programId,
-        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-      })
-      .instruction();
-
-    const tx = new Transaction().add(ix);
-    tx.feePayer = delegator;
-    const { blockhash } = await this.program.provider.connection.getLatestBlockhash();
-    tx.recentBlockhash = blockhash;
-
-    return tx.serialize({ requireAllSignatures: false }).toString("base64");
+    return this._buildTx(operator, ix);
   }
 
   async buildVerifyCoverageTx(
@@ -282,11 +179,7 @@ export class ZoneRunnersClient {
     const [passportPda] = this.passportPda(operator);
 
     const ix = await this.program.methods
-      .verifyZoneCoverage(
-        new BN(h3Index.toString()),
-        minEntries,
-        new BN(minQualityFlags.toString())
-      )
+      .verifyZoneCoverage(new BN(h3Index.toString()), minEntries, new BN(minQualityFlags.toString()))
       .accounts({
         operator,
         zoneConfig: zoneConfigPda,
@@ -298,11 +191,70 @@ export class ZoneRunnersClient {
       })
       .instruction();
 
+    return this._buildTx(operator, ix);
+  }
+
+  async buildChallengeZoneTx(
+    challenger: PublicKey,
+    seasonPda: PublicKey,
+    h3Index: bigint,
+    facility: PublicKey,
+    snapshotBuffer: PublicKey,
+    clubId: number,
+    adminPubkey: PublicKey,
+    minEntries: number = 3,
+    minQualityFlags: bigint = BigInt(1)
+  ): Promise<string> {
+    const [zoneConfigPda] = this.zoneConfigPda(clubId);
+    const [zoneClaimPda] = this.zoneClaimPda(seasonPda, h3Index);
+    const [passportPda] = this.passportPda(challenger);
+
+    // Fetch the current zone claim to get the operator (defender) pubkey
+    const claim = await this.program.account.zoneClaim.fetch(zoneClaimPda) as ZoneClaimAccount;
+    const defender = new PublicKey((claim as any).operator);
+
+    const ix = await this.program.methods
+      .challengeZone(new BN(h3Index.toString()), facility, minEntries, new BN(minQualityFlags.toString()))
+      .accounts({
+        challenger,
+        zoneConfig: zoneConfigPda,
+        season: seasonPda,
+        zoneClaim: zoneClaimPda,
+        operator: defender,
+        admin: adminPubkey,
+        challengerPassport: passportPda,
+        snapshotBuffer,
+        systemProgram: SystemProgram.programId,
+      })
+      .instruction();
+
+    return this._buildTx(challenger, ix);
+  }
+
+  async buildWithdrawZoneStakeTx(
+    operator: PublicKey,
+    seasonPda: PublicKey,
+    h3Index: bigint
+  ): Promise<string> {
+    const [zoneClaimPda] = this.zoneClaimPda(seasonPda, h3Index);
+
+    const ix = await this.program.methods
+      .withdrawZoneStake(new BN(h3Index.toString()))
+      .accounts({
+        operator,
+        season: seasonPda,
+        zoneClaim: zoneClaimPda,
+      })
+      .instruction();
+
+    return this._buildTx(operator, ix);
+  }
+
+  private async _buildTx(feePayer: PublicKey, ix: anchor.web3.TransactionInstruction): Promise<string> {
     const tx = new Transaction().add(ix);
-    tx.feePayer = operator;
+    tx.feePayer = feePayer;
     const { blockhash } = await this.program.provider.connection.getLatestBlockhash();
     tx.recentBlockhash = blockhash;
-
     return tx.serialize({ requireAllSignatures: false }).toString("base64");
   }
 }
