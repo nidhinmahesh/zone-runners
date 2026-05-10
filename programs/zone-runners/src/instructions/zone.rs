@@ -249,6 +249,34 @@ pub fn challenge_zone(
     claim.challenge_count = claim.challenge_count.saturating_add(1);
     // stake_lamports unchanged — challenger's deposit is now the bond
 
+    // ── OperatorVault updates (critical for reward distribution) ─────────────
+    // Defender loses the zone — decrement their vault so they don't earn
+    // season rewards for a zone they no longer own.
+    let defender_vault = &mut ctx.accounts.defender_vault;
+    defender_vault.zones_verified = defender_vault.zones_verified.saturating_sub(1);
+    defender_vault.zones_claimed = defender_vault.zones_claimed.saturating_sub(1);
+
+    // Challenger gains the zone — init or update their vault so they earn
+    // their pro-rata share of the season bounty pool.
+    let challenger_vault = &mut ctx.accounts.challenger_vault;
+    if challenger_vault.season == Pubkey::default() {
+        challenger_vault.season = ctx.accounts.season.key();
+        challenger_vault.operator = ctx.accounts.challenger.key();
+        challenger_vault.zones_claimed = 0;
+        challenger_vault.zones_verified = 0;
+        challenger_vault.rewards_claimed = 0;
+        challenger_vault.bump = ctx.bumps.challenger_vault;
+    }
+    challenger_vault.zones_claimed = challenger_vault
+        .zones_claimed
+        .checked_add(1)
+        .ok_or(ZoneError::MathOverflow)?;
+    challenger_vault.zones_verified = challenger_vault
+        .zones_verified
+        .checked_add(1)
+        .ok_or(ZoneError::MathOverflow)?;
+    // ─────────────────────────────────────────────────────────────────────────
+
     // Update challenger passport
     let passport = &mut ctx.accounts.challenger_passport;
     if passport.authority == Pubkey::default() {
@@ -422,13 +450,25 @@ pub struct ChallengeZone<'info> {
     )]
     pub zone_claim: Account<'info, ZoneClaim>,
 
-    /// The current zone owner — receives nothing on loss (their stake stays as challenger's bond)
-    /// CHECK: validated via zone_claim.operator in instruction body
+    /// Defender's OperatorVault — decremented on challenge win so they stop
+    /// earning season rewards for the zone they lost.
     #[account(
         mut,
-        constraint = operator.key() == zone_claim.operator @ ZoneError::Unauthorized
+        seeds = [OP_VAULT_SEED, season.key().as_ref(), zone_claim.operator.as_ref()],
+        bump = defender_vault.bump,
     )]
-    pub operator: AccountInfo<'info>,
+    pub defender_vault: Account<'info, OperatorVault>,
+
+    /// Challenger's OperatorVault — created if needed, incremented so they
+    /// earn their pro-rata share of the season bounty pool.
+    #[account(
+        init_if_needed,
+        payer = challenger,
+        space = 8 + OperatorVault::MAX_SIZE,
+        seeds = [OP_VAULT_SEED, season.key().as_ref(), challenger.key().as_ref()],
+        bump
+    )]
+    pub challenger_vault: Account<'info, OperatorVault>,
 
     /// Protocol fee recipient
     /// CHECK: validated via zone_config.admin

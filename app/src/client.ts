@@ -209,9 +209,15 @@ export class ZoneRunnersClient {
     const [zoneClaimPda] = this.zoneClaimPda(seasonPda, h3Index);
     const [passportPda] = this.passportPda(challenger);
 
-    // Fetch the current zone claim to get the operator (defender) pubkey
-    const claim = await this.program.account.zoneClaim.fetch(zoneClaimPda) as ZoneClaimAccount;
-    const defender = new PublicKey((claim as any).operator);
+    // Fetch the zone claim to get the defender's pubkey for vault PDA derivation
+    const claim = await this.program.account.zoneClaim.fetch(zoneClaimPda) as any;
+    const defender = new PublicKey(claim.operator);
+
+    const [defenderVaultPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("op-vault"), seasonPda.toBuffer(), defender.toBuffer()],
+      this.programId
+    );
+    const [challengerVaultPda] = this.operatorVaultPda(seasonPda, challenger);
 
     const ix = await this.program.methods
       .challengeZone(new BN(h3Index.toString()), facility, minEntries, new BN(minQualityFlags.toString()))
@@ -220,7 +226,8 @@ export class ZoneRunnersClient {
         zoneConfig: zoneConfigPda,
         season: seasonPda,
         zoneClaim: zoneClaimPda,
-        operator: defender,
+        defenderVault: defenderVaultPda,
+        challengerVault: challengerVaultPda,
         admin: adminPubkey,
         challengerPassport: passportPda,
         snapshotBuffer,
