@@ -19,9 +19,9 @@ pub mod zone_runners {
     pub fn initialize_zone_config(
         ctx: Context<InitializeZoneConfig>,
         club_id: u64,
-        guage_program_id: Pubkey,
+        oracle_program_id: Pubkey,
     ) -> Result<()> {
-        initialize::initialize_zone_config(ctx, club_id, guage_program_id)
+        initialize::initialize_zone_config(ctx, club_id, oracle_program_id)
     }
 
     // ── Seasons ──────────────────────────────────────────────────────────────
@@ -57,7 +57,7 @@ pub mod zone_runners {
         zone::claim_zone(ctx, h3_index, facility, stake_lamports)
     }
 
-    /// Verify a zone claim by reading coverage data from a guage-commons SnapshotBuffer.
+    /// Verify a zone claim by reading coverage data from a DePIN oracle SnapshotBuffer.
     /// Cross-program account read — no CPI, no oracle. The proof is the hardware's own data.
     pub fn verify_zone_coverage(
         ctx: Context<VerifyZoneCoverage>,

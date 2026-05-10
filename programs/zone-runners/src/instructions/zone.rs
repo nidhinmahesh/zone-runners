@@ -80,7 +80,7 @@ pub fn claim_zone(
     Ok(())
 }
 
-/// Verifies zone coverage by reading a guage-commons SnapshotBuffer account.
+/// Verifies zone coverage by reading a DePIN oracle SnapshotBuffer account.
 /// No CPI — direct cross-program account read. Records coverage_score for future challenges.
 pub fn verify_zone_coverage(
     ctx: Context<VerifyZoneCoverage>,
@@ -98,7 +98,7 @@ pub fn verify_zone_coverage(
     // ── Cross-program account read ───────────────────────────────────────────
     require_keys_eq!(
         ctx.accounts.snapshot_buffer.owner.key(),
-        zone_config.guage_program_id,
+        zone_config.oracle_program_id,
         ZoneError::InvalidSnapshotOwner
     );
 
@@ -179,7 +179,7 @@ pub fn challenge_zone(
     // ── Cross-program account read (same pattern as verify_zone_coverage) ────
     require_keys_eq!(
         ctx.accounts.snapshot_buffer.owner.key(),
-        zone_config.guage_program_id,
+        zone_config.oracle_program_id,
         ZoneError::InvalidSnapshotOwner
     );
 
@@ -421,7 +421,7 @@ pub struct VerifyZoneCoverage<'info> {
     )]
     pub passport: Account<'info, ContributionPassport>,
 
-    /// CHECK: owned-by check enforced in instruction body against zone_config.guage_program_id
+    /// CHECK: owned-by check enforced in instruction body against zone_config.oracle_program_id
     pub snapshot_buffer: AccountInfo<'info>,
 }
 
@@ -487,7 +487,7 @@ pub struct ChallengeZone<'info> {
     )]
     pub challenger_passport: Account<'info, ContributionPassport>,
 
-    /// CHECK: owned-by check enforced in instruction body against zone_config.guage_program_id
+    /// CHECK: owned-by check enforced in instruction body against zone_config.oracle_program_id
     pub snapshot_buffer: AccountInfo<'info>,
 
     pub system_program: Program<'info, System>,

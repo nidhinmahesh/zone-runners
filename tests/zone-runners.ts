@@ -9,7 +9,7 @@ import {
 } from "@solana/web3.js";
 import { assert } from "chai";
 
-const GUAGE_PROGRAM_ID = new PublicKey(
+const ORACLE_PROGRAM_ID = new PublicKey(
   "4Ch9vYQJyXtyZ7Swr9EMU9xaCtpZDckv4E1thjX7FZjW"
 );
 
@@ -88,7 +88,7 @@ describe("zone-runners", () => {
 
   it("initializes zone config", async () => {
     await program.methods
-      .initializeZoneConfig(new anchor.BN(clubId), GUAGE_PROGRAM_ID)
+      .initializeZoneConfig(new anchor.BN(clubId), ORACLE_PROGRAM_ID)
       .accounts({
         admin: admin.publicKey,
         zoneConfig: zoneConfigPda,
@@ -99,7 +99,7 @@ describe("zone-runners", () => {
 
     const cfg = await program.account.zoneConfig.fetch(zoneConfigPda);
     assert.equal(cfg.admin.toBase58(), admin.publicKey.toBase58());
-    assert.equal(cfg.guageProgramId.toBase58(), GUAGE_PROGRAM_ID.toBase58());
+    assert.equal(cfg.oracleProgramId.toBase58(), ORACLE_PROGRAM_ID.toBase58());
     assert.equal(cfg.seasonCount, 0);
   });
 
@@ -233,10 +233,10 @@ describe("zone-runners", () => {
     assert.ok(passport.lastUpdated.toNumber() > 0);
   });
 
-  // verify_zone_coverage and challenge_zone both require a live guage-commons
+  // verify_zone_coverage and challenge_zone both require a live DePIN oracle
   // SnapshotBuffer on devnet. Run these manually after deployment.
   it("verifies zone coverage (skipped on localnet — requires live SnapshotBuffer)", async () => {
-    console.log("  → skipped: deploy to devnet and run with live guage-commons data");
+    console.log("  → skipped: deploy to devnet and run with live DePIN oracle data");
   });
 
   it("challenge_zone (skipped on localnet — requires verified zone with live data)", async () => {

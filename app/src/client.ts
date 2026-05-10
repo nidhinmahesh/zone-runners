@@ -12,7 +12,7 @@ import {
   SeasonAccount,
   ZoneClaimAccount,
   ZoneConfigAccount,
-  GUAGE_PROGRAM_ID,
+  ORACLE_PROGRAM_ID,
   ZONE_RUNNERS_PROGRAM_ID,
 } from "./types";
 

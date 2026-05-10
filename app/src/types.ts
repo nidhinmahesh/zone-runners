@@ -4,7 +4,7 @@ import BN from "bn.js";
 export interface ZoneConfigAccount {
   admin: PublicKey;
   clubId: number[];
-  guageProgramId: PublicKey;
+  oracleProgramId: PublicKey;
   seasonCount: number;
   bump: number;
 }
@@ -65,6 +65,6 @@ export function tierLabel(tier: number): TierLabel {
 }
 
 export const ZONE_RUNNERS_PROGRAM_ID = "ZRuNrAtgJM4hG3YLtq6NmbHdtBqoNGbvRvbyLuLNoWf";
-export const GUAGE_PROGRAM_ID = "4Ch9vYQJyXtyZ7Swr9EMU9xaCtpZDckv4E1thjX7FZjW";
+export const ORACLE_PROGRAM_ID = "4Ch9vYQJyXtyZ7Swr9EMU9xaCtpZDckv4E1thjX7FZjW";
 export const MIN_ZONE_STAKE_LAMPORTS = BigInt(10_000_000); // 0.01 SOL
 export const CHALLENGE_FEE_BPS = 500; // 5%

@@ -26,8 +26,8 @@ pub struct ZoneConfig {
     pub admin: Pubkey,
     /// 8-byte little-endian encoding of fexrapi club_id
     pub club_id: [u8; 8],
-    /// guage-commons program ID (4Ch9vYQJyXtyZ7Swr9EMU9xaCtpZDckv4E1thjX7FZjW)
-    pub guage_program_id: Pubkey,
+    /// DePIN oracle program ID (4Ch9vYQJyXtyZ7Swr9EMU9xaCtpZDckv4E1thjX7FZjW)
+    pub oracle_program_id: Pubkey,
     pub season_count: u32,
     pub bump: u8,
 }
@@ -70,12 +70,12 @@ pub struct ZoneClaim {
     /// H3 cell index stored as raw u64 (big-endian bytes used in PDA seed)
     pub h3_index: u64,
     pub operator: Pubkey,
-    /// The guage-commons Facility account that backs this zone
+    /// The DePIN oracle Facility account that backs this zone
     pub facility: Pubkey,
     pub claimed_at: i64,
     pub is_verified: bool,
     pub verified_at: i64,
-    /// The guage-commons SnapshotBuffer that provided proof of coverage
+    /// The DePIN oracle SnapshotBuffer that provided proof of coverage
     pub snapshot_buffer: Pubkey,
     /// SOL lamports staked to hold this zone; challenger must match this amount
     pub stake_lamports: u64,
@@ -142,8 +142,8 @@ impl ContributionPassport {
     }
 }
 
-// ─── Shadow structs for guage-commons cross-program reads ─────────────────────
-// We read SnapshotBuffer accounts owned by the guage-commons program without CPI.
+// ─── Shadow structs for DePIN oracle cross-program reads ─────────────────────
+// We read SnapshotBuffer accounts owned by the DePIN oracle program without CPI.
 // These mirror the on-chain layout exactly (Anchor borsh serialization).
 
 #[derive(AnchorDeserialize, Clone, Default)]

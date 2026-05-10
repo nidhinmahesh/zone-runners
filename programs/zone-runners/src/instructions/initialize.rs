@@ -4,12 +4,12 @@ use crate::state::*;
 pub fn initialize_zone_config(
     ctx: Context<InitializeZoneConfig>,
     club_id: u64,
-    guage_program_id: Pubkey,
+    oracle_program_id: Pubkey,
 ) -> Result<()> {
     let cfg = &mut ctx.accounts.zone_config;
     cfg.admin = ctx.accounts.admin.key();
     cfg.club_id = club_id.to_le_bytes();
-    cfg.guage_program_id = guage_program_id;
+    cfg.oracle_program_id = oracle_program_id;
     cfg.season_count = 0;
     cfg.bump = ctx.bumps.zone_config;
     Ok(())

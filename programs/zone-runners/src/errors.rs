@@ -16,7 +16,7 @@ pub enum ZoneError {
     ZoneAlreadyClaimed,
     #[msg("Zone is not verified; cannot be challenged or rewarded")]
     ZoneNotVerified,
-    #[msg("The snapshot_buffer is not owned by the expected guage-commons program")]
+    #[msg("The snapshot_buffer is not owned by the expected DePIN oracle program")]
     InvalidSnapshotOwner,
     #[msg("The snapshot_buffer facility does not match the zone claim facility")]
     FacilityMismatch,

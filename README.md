@@ -12,7 +12,7 @@ Live: `https://api.getfexr.com/v1/clubs/6`
 
 **You run a Helium hotspot, Hivemapper dashcam, or GEODNET station**
 
-Stake SOL to claim the zones your hardware covers, verify them using your existing guage-commons data feed, and hold them. As long as your hardware keeps publishing quality data, nobody can take your zones. If a challenger shows up with a weaker signal, their challenge reverts on-chain and they only lose gas. You earn from successful defenses and from the season bounty pool. One device, multiple income streams.
+Stake SOL to claim the zones your hardware covers, verify them using your existing DePIN oracle data feed, and hold them. As long as your hardware keeps publishing quality data, nobody can take your zones. If a challenger shows up with a weaker signal, their challenge reverts on-chain and they only lose gas. You earn from successful defenses and from the season bounty pool. One device, multiple income streams.
 
 **You want to compete without owning the best hardware in an area**
 
@@ -40,7 +40,7 @@ A season defines a time window targeting one DePIN network. Operators race to cl
 Season: Helium · 90 days · 50 SOL bounty pool
 
   Operator A stakes 0.1 SOL to claim zone 617700169958293503 (Austin, TX)
-    └── verify_zone_coverage reads Operator A's SnapshotBuffer from guage-commons
+    └── verify_zone_coverage reads Operator A's SnapshotBuffer from DePIN oracle
     └── finds 5 recent entries with quality_flags ≥ 1
     └── zone verified. coverage_score = 5 ✓
 
@@ -59,7 +59,7 @@ Season: Helium · 90 days · 50 SOL bounty pool
 
 ## Why zone verification can't be faked
 
-When `verify_zone_coverage` or `challenge_zone` is called, the program reads the operator's `SnapshotBuffer` account directly from guage-commons storage. No CPI, no oracle, no intermediary.
+When `verify_zone_coverage` or `challenge_zone` is called, the program reads the operator's `SnapshotBuffer` account directly from DePIN oracle storage. No CPI, no oracle, no intermediary.
 
 ```rust
 let data = ctx.accounts.snapshot_buffer.data.borrow();
@@ -74,7 +74,7 @@ let recent = snapshot.entries.iter()
     .count();
 ```
 
-The `snapshot_buffer` account ownership is verified against the guage-commons program ID before deserialization. An operator can't pass in a fake account — Solana enforces account ownership.
+The `snapshot_buffer` account ownership is verified against the DePIN oracle program ID before deserialization. An operator can't pass in a fake account — Solana enforces account ownership.
 
 ---
 
@@ -126,13 +126,13 @@ Plus: challenger earnings from each successful challenge = defender_stake × 0.9
 
 ## Integrating your DePIN hardware
 
-Zone Runners reads data from [guage-commons](https://github.com/fexr/solana-contracts).
+Zone Runners reads data from [DePIN oracle](https://github.com/fexr/solana-contracts).
 
-1. Call `register_facility` on guage-commons with your node's metadata.
+1. Call `register_facility` on DePIN oracle with your node's metadata.
 2. Publish data via `publish_snapshot` regularly. Each entry carries a `quality_flags` bitmask.
 3. Use your `Facility` pubkey when calling `claim_zone`.
 
-guage-commons devnet: `4Ch9vYQJyXtyZ7Swr9EMU9xaCtpZDckv4E1thjX7FZjW`
+DePIN oracle devnet: `4Ch9vYQJyXtyZ7Swr9EMU9xaCtpZDckv4E1thjX7FZjW`
 
 ---
 
@@ -223,7 +223,7 @@ Prerequisites: Anchor 0.29.0, Rust 1.89.0, Solana CLI, Node 18+
 | | |
 |-|-|
 | Zone Runners (devnet) | `ZRuNrAtgJM4hG3YLtq6NmbHdtBqoNGbvRvbyLuLNoWf` |
-| guage-commons (devnet) | `4Ch9vYQJyXtyZ7Swr9EMU9xaCtpZDckv4E1thjX7FZjW` |
+| DePIN oracle (devnet) | `4Ch9vYQJyXtyZ7Swr9EMU9xaCtpZDckv4E1thjX7FZjW` |
 
 ---
 
