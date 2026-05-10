@@ -14,7 +14,7 @@ pub enum ZoneError {
     SeasonAlreadySettled,
     #[msg("This H3 zone has already been claimed in this season")]
     ZoneAlreadyClaimed,
-    #[msg("Zone is not verified; cannot claim rewards")]
+    #[msg("Zone is not verified; cannot be challenged or rewarded")]
     ZoneNotVerified,
     #[msg("The snapshot_buffer is not owned by the expected guage-commons program")]
     InvalidSnapshotOwner,
@@ -22,12 +22,6 @@ pub enum ZoneError {
     FacilityMismatch,
     #[msg("Not enough recent high-quality snapshots to verify this zone")]
     InsufficientCoverage,
-    #[msg("Delegation amount must be greater than zero")]
-    ZeroDelegation,
-    #[msg("This delegation stake is not active")]
-    DelegationNotActive,
-    #[msg("Cannot undelegate while season is still active")]
-    CannotUndelegateActive,
     #[msg("Rewards have already been claimed for this position")]
     RewardsAlreadyClaimed,
     #[msg("Season pool is empty; no rewards to distribute")]
@@ -42,4 +36,14 @@ pub enum ZoneError {
     InvalidSeasonWindow,
     #[msg("Arithmetic overflow in reward calculation")]
     MathOverflow,
+    #[msg("Challenger coverage score must strictly exceed the current owner's score")]
+    InsufficientCoverageToChallenge,
+    #[msg("Cannot challenge your own zone")]
+    CannotChallengeSelf,
+    #[msg("Stake amount is below the minimum required (0.01 SOL)")]
+    StakeBelowMinimum,
+    #[msg("Zone stake has already been withdrawn")]
+    StakeAlreadyWithdrawn,
+    #[msg("Season must be settled before withdrawing stake")]
+    SeasonNotSettledForWithdraw,
 }

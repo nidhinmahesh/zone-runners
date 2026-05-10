@@ -9,6 +9,10 @@ pub const ZONE_CLAIM_SEED: &[u8] = b"zone-claim";
 pub const OP_VAULT_SEED: &[u8] = b"op-vault";
 pub const PASSPORT_SEED: &[u8] = b"passport";
 
+pub const MIN_ZONE_STAKE: u64 = 10_000_000;  // 0.01 SOL minimum to claim a zone
+pub const CHALLENGE_FEE_BPS: u64 = 500;       // 5% protocol fee on successful challenges
+pub const BPS_BASE: u64 = 10_000;
+
 pub const RUNNER_MIN_ZONES: u32 = 1;
 pub const ZONE_LEAD_MIN_ZONES: u32 = 5;
 pub const ZONE_LEAD_MIN_SEASONS: u32 = 2;
@@ -73,11 +77,17 @@ pub struct ZoneClaim {
     pub verified_at: i64,
     /// The guage-commons SnapshotBuffer that provided proof of coverage
     pub snapshot_buffer: Pubkey,
+    /// SOL lamports staked to hold this zone; challenger must match this amount
+    pub stake_lamports: u64,
+    /// Recent entry count at last verification; challenger must strictly exceed this
+    pub coverage_score: u32,
+    /// Number of successful challenges this zone has survived
+    pub challenge_count: u16,
     pub bump: u8,
 }
 
 impl ZoneClaim {
-    pub const MAX_SIZE: usize = 32 + 8 + 32 + 32 + 8 + 1 + 8 + 32 + 1 + 8;
+    pub const MAX_SIZE: usize = 32 + 8 + 32 + 32 + 8 + 1 + 8 + 32 + 8 + 4 + 2 + 1 + 8;
 }
 
 // ─── OperatorVault ────────────────────────────────────────────────────────────
